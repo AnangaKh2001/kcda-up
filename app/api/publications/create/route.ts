@@ -587,6 +587,37 @@ function fillRequests(
     });
 }
 
+function markerDeleteRequests(element: DocsStructuralElement, tabId?: string) {
+  return (element.paragraph?.elements || [])
+    .flatMap((run) => {
+      const text = run.textRun?.content || "";
+      if (
+        !text ||
+        typeof run.startIndex !== "number" ||
+        typeof run.endIndex !== "number"
+      )
+        return [];
+      const endIndex = text.endsWith("\n") ? run.endIndex - 1 : run.endIndex;
+      if (endIndex <= run.startIndex) return [];
+      return [
+        {
+          deleteContentRange: {
+            range: {
+              startIndex: run.startIndex,
+              endIndex,
+              ...(tabId ? { tabId } : {}),
+            },
+          },
+        },
+      ];
+    })
+    .sort((a, b) => {
+      const rangeA = a.deleteContentRange.range;
+      const rangeB = b.deleteContentRange.range;
+      return rangeB.startIndex - rangeA.startIndex;
+    });
+}
+
 async function fillTable(
   token: string,
   documentId: string,
@@ -618,7 +649,11 @@ async function fillTable(
       fields: "backgroundColor",
     },
   }));
-  const requests = [...fillRequests(table, config, rows), ...styleRequests];
+  const requests = [
+    ...fillRequests(table, config, rows),
+    ...styleRequests,
+    ...markerDeleteRequests(marker.element, tabId),
+  ];
   if (requests.length) await docsBatchUpdate(token, documentId, requests);
 }
 
