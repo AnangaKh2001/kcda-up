@@ -623,15 +623,18 @@ async function fillTable(
 }
 
 async function removeMarkers(token: string, documentId: string) {
+  const markerFragments = ["{{TA"];
   await docsBatchUpdate(
     token,
     documentId,
-    TABLES.map((table) => ({
-      replaceAllText: {
-        containsText: { text: table.marker, matchCase: true },
-        replaceText: "",
-      },
-    })),
+    [...TABLES.map((table) => table.marker), ...markerFragments].map(
+      (marker) => ({
+        replaceAllText: {
+          containsText: { text: marker, matchCase: true },
+          replaceText: "",
+        },
+      }),
+    ),
   );
 }
 
