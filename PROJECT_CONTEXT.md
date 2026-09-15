@@ -29,22 +29,57 @@ Yang sudah ada:
   - Buat KCDA.
 - UI upload data sumber masih mock/local state, belum benar-benar menerima dan memproses file Excel.
 - Endpoint `POST /api/publications/create` sudah menulis identitas publikasi ke Google Sheet.
-- Penulisan Google Sheet saat ini hanya mengisi range `B1:B5` pada sheet master, default nama sheet `HALAMAN DEPAN`.
+- Penulisan Google Sheet mengisi identitas pada `HALAMAN DEPAN!B1:B5` dan tim penyusun pada sel-sel `HALAMAN INFO` yang dipetakan di bawah.
+- Form pembuatan publikasi membaca nilai awal dari master Sheet melalui `GET /api/publications/create`.
+- Mapping metadata aktif:
+  - `HALAMAN DEPAN!B1:B5`: kecamatan, tahun, katalog, ISSN, nomor publikasi.
+  - `HALAMAN INFO!A63`: pengarah.
+  - `HALAMAN INFO!A66`: penanggung jawab.
+  - `HALAMAN INFO!A69`: penyunting.
+  - `HALAMAN INFO!A72`: pengolah data dan penulis naskah.
+  - `HALAMAN INFO!A75`: penata letak.
+  - `HALAMAN INFO!A78`: penerjemah.
+- Saat publikasi dibuat, seluruh metadata tersebut ditulis kembali ke master Sheet. Beberapa nama pada `A72` dimasukkan satu per baris di form dan disimpan dengan pemisah `•`.
+
+## Update Data Sumber
+
+- Update database mendukung unggahan sebagian; tidak semua file harus tersedia.
+- File divalidasi ketika dipilih dan divalidasi ulang di server sebelum penulisan.
+- Konfirmasi update wajib mengetik `YAKIN UPDATE`.
+- Mapping aktif:
+  - Jumlah Penduduk -> `DATABASE PENDUDUK WILAYAH!A1:I266`.
+  - Umur -> `DATABASE PENDUDUK WILAYAH!S1:V385`.
+  - Jarak Desa -> `DATABASE PENDUDUK WILAYAH!AB1:AE265`.
+  - PNS pendidikan -> `DATABASE PENDUDUK WILAYAH!AG1:AK241`.
+  - PNS desa -> `DATABASE PENDUDUK WILAYAH!AM1:AP265`; pembersihan sampai baris 267 untuk menghapus sisa rumus lama.
+  - Jumlah RT/RW -> `DATABASE PENDUDUK WILAYAH!AR1:AU265`.
+  - EMIS N -> `DATABASE EMIS!A1:BC27`.
+  - EMIS N-1 -> `DATABASE EMIS N-1!A1:BC27`.
+- Endpoint:
+  - `POST /api/data-sources/validate` untuk validasi langsung satu file.
+  - `POST /api/data-sources/update` untuk validasi ulang, pencadangan, update, verifikasi, dan rollback bila gagal.
+- Survei Hortikultura sudah aktif untuk tujuh tabel. PODES masih tampil sebagai slot unggahan nonaktif sampai mapping tersedia.
 
 Yang belum ada:
 
-- Upload file Excel sebenarnya.
-- Parser/validator template Excel.
-- Mapping setiap template Excel ke sheet/range master data.
 - Penyimpanan file upload atau riwayat upload.
-- Proses update database/master data dari file Excel.
-- Pembuatan/copy Google Docs template.
 - Pengisian Google Docs via linked object.
-- Pengisian Google Docs via Google Docs API untuk row dinamis.
 - Status/progress job yang persisten.
 - Database aplikasi sendiri.
 
 ## Struktur File Penting
+
+Route halaman utama:
+
+- `/dashboard` untuk Ringkasan.
+- `/data-sumber` untuk unggah, validasi, dan update database.
+- `/publikasi` untuk identitas, tim penyusun, dan pembuatan KCDA.
+
+Autentikasi menggunakan Google OAuth web-server flow. Email yang diperbolehkan dibaca dari `GOOGLE_ALLOWED_EMAILS`; token pengguna disimpan dalam cookie terenkripsi dan `HttpOnly`. Callback lokal yang didaftarkan di Google Cloud adalah `http://localhost:3000/api/auth/google/callback`.
+
+Pembuatan publikasi wajib dikonfirmasi dengan teks `YAKIN BUAT PUBLIKASI`. Endpoint mengirim progres NDJSON berdasarkan tahap server sebenarnya, memperbarui metadata master sheet, membaca tabel dinamis, membuat copy Docs, mengisi tabel dinamis, menghapus marker, lalu mengembalikan URL dokumen. Google Docs API tidak menyediakan operasi refresh linked table seperti tombol `Update all` di UI Docs; bagian ini tidak boleh ditandai berhasil secara otomatis sebelum mekanisme pengganti diterapkan.
+
+Mode publikasi menggunakan `GOOGLE_USE_EXISTING_DOC=false`: template tidak diedit langsung. Copy bernama `KCDA [Kecamatan] [Tahun]` dibuat ke folder `GOOGLE_OUTPUT_FOLDER_ID`, URL hasil ditampilkan di bawah progres, dan browser membuka hasil tersebut pada tab baru.
 
 - `package.json`
   - Next.js, React, TypeScript.
@@ -191,6 +226,77 @@ Integrasi yang kemungkinan diperlukan berikutnya:
 
 Jika menambahkan Google Docs/Drive, scope service account harus diperluas dan file Google Drive/Docs/Sheets harus dibagikan ke service account.
 
+## File Google Aktif
+
+- Master Sheet:
+  - ID: `1o-yODjHh4zmNshFbZ7pwjtlt_U7Zsik3sJxRh7dJpho`
+  - Judul terdeteksi: `Master KCDA 1804`
+  - Tab penting:
+    - `HALAMAN DEPAN`
+    - `HALAMAN INFO`
+    - `BAB 1`
+    - `BAB 2`
+    - `BAB 3`
+    - `BAB 4`
+    - `BAB 5`
+    - `Bab 6`
+    - `Bab 7`
+    - `HALAMAN BELAKANG`
+    - `DATABASE PENDUDUK WILAYAH`
+    - `DATABASE HORTI`
+    - `Database PODES`
+    - `Database PODES N-1`
+    - `DATABASE EMIS`
+    - `DATABASE EMIS N-1`
+    - `Master`
+
+- Template/target Google Docs:
+  - ID: `1PNMoMmTwqNBcCqImb1XkbyHAHsOktFekpFsSSmNh2MU`
+  - Judul terdeteksi: `MASTER KCDA 1804`
+  - Google Docs API dan Google Drive API sudah aktif dan bisa diakses service account.
+  - Drive capabilities terdeteksi: service account bisa edit dan copy dokumen.
+  - Dokumen memakai Google Docs tabs; konten utama berada di tab `t.0`.
+  - Jumlah tabel terdeteksi di dokumen: 129.
+
+## Tabel Dinamis Awal
+
+Fokus step pertama adalah tabel yang jumlah row-nya mengikuti jumlah desa dalam kecamatan. Untuk contoh data Way Jepara di master sheet, ada 16 desa dan 1 baris total kecamatan.
+
+Tabel dinamis yang sudah teridentifikasi di master sheet:
+
+- `BAB 1`
+  - Tabel `1.1`: mulai sekitar row 55.
+    - Header: Desa, Luas, Persentase terhadap luas kecamatan.
+    - Data desa mulai sekitar row 61.
+    - Baris total kecamatan muncul setelah blok desa.
+  - Tabel `1.2`: mulai sekitar row 87.
+    - Header: Desa, jarak ke ibu kota kecamatan, jarak ke ibu kota kabupaten/kota.
+    - Data desa mulai sekitar row 93.
+
+- `BAB 2`
+  - Tabel `2.1.1`: mulai sekitar row 57.
+    - Header: Desa, RW, RT.
+    - Data desa mulai sekitar row 63.
+  - Tabel `2.2.1`: mulai sekitar row 90.
+    - Header: Pemerintah daerah, laki-laki, perempuan, jumlah.
+    - Termasuk baris pemerintah kecamatan lalu pemerintah desa.
+
+- `BAB 3`
+  - Tabel `3.1`: mulai sekitar row 56.
+    - Bagian pertama: Desa, laki-laki, perempuan, jumlah.
+  - `Lanjutan Tabel 3.1`: mulai sekitar row 86.
+    - Bagian lanjutan: Desa, distribusi penduduk, kepadatan penduduk, rasio jenis kelamin.
+
+Strategi teknis yang disarankan untuk Google Docs:
+
+1. Tabel template di Google Docs tetap disiapkan manual dengan header dan satu baris contoh/data marker.
+2. Backend membaca data tabel dari master sheet.
+3. Backend menemukan tabel target di Google Docs memakai marker teks stabil di dekat tabel, misalnya `{{TABLE_1_1}}`, `{{TABLE_1_2}}`, `{{TABLE_2_1_1}}`, `{{TABLE_2_2_1}}`, `{{TABLE_3_1}}`, dan `{{TABLE_3_1_LANJUTAN}}`.
+4. Backend menghapus/menambah row data pada tabel target agar sesuai jumlah data desa.
+5. Backend mengisi cell tabel menggunakan Google Docs API `batchUpdate`.
+
+Marker teks lebih aman daripada mencari tabel hanya berdasarkan urutan tabel, karena struktur dokumen publikasi bisa berubah.
+
 ## Arsitektur Target Yang Masuk Akal
 
 Untuk pengembangan berikutnya, arah yang paling rapi:
@@ -268,3 +374,15 @@ Anggap proyek ini sebagai orkestrator publikasi KCDA:
 - Google service/API menangani bagian yang strukturnya dinamis.
 
 Saat ini baru fondasi UI + login + satu jalur tulis metadata ke Google Sheet. Pekerjaan inti berikutnya adalah membangun pipeline Excel ke master sheet, lalu pipeline master sheet ke Google Docs.
+
+### Survei Hortikultura
+
+Tujuh file tabel divalidasi dari sheet `Tabel`, menggunakan data 24 kecamatan pada baris 8-31. Data ditulis tanpa mengganti kolom tahun dan kecamatan di `DATABASE HORTI`:
+
+- 5.1.1 -> `C3:L26`
+- 5.1.2 -> `M3:V26`
+- 5.1.5 -> `W3:AD26`
+- 5.1.6 -> `AE3:AL26`
+- 5.1.9 -> `AM3:AT26`
+- 5.1.10 -> `AU3:BB26`
+- 5.1.13 -> `BC3:BL26`

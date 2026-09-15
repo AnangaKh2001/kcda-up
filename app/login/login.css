@@ -1,0 +1,19 @@
+.google-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+  text-decoration: none;
+}
+
+.google-login span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #4285f4;
+  background: #fff;
+  font-weight: 800;
+}
