@@ -148,9 +148,12 @@ export default function KcdaDashboard({
       const decoder = new TextDecoder();
       let buffer = "";
       let resultUrl = "";
+      let lastProgress = 2;
       const handleEvent = (event: PublicationResult) => {
-        if (typeof event.progress === "number")
+        if (typeof event.progress === "number") {
+          lastProgress = event.progress;
           setPublicationProgress(event.progress);
+        }
         if (event.log)
           setPublicationLogs((current) => [...current, event.log!]);
         if (event.status === "error" || event.error)
@@ -168,7 +171,9 @@ export default function KcdaDashboard({
       }
       if (buffer.trim()) handleEvent(JSON.parse(buffer) as PublicationResult);
       if (!response.ok || !resultUrl)
-        throw new Error("Publikasi tidak menghasilkan dokumen.");
+        throw new Error(
+          `Koneksi proses terputus setelah ${lastProgress}%. Dokumen mungkin sudah dibuat sebagian.`,
+        );
       const publicationKey = `${payload.kecamatan}-${payload.year}`;
       setCompletedKcda((current) =>
         current.includes(publicationKey)

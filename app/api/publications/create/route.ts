@@ -420,13 +420,13 @@ async function docsBatchUpdate(
   documentId: string,
   requests: Record<string, unknown>[],
 ) {
-  for (let index = 0; index < requests.length; index += 90) {
+  for (let index = 0; index < requests.length; index += 400) {
     await googleJson(
       `https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`,
       token,
       {
         method: "POST",
-        body: JSON.stringify({ requests: requests.slice(index, index + 90) }),
+        body: JSON.stringify({ requests: requests.slice(index, index + 400) }),
       },
     );
   }
@@ -622,37 +622,6 @@ async function fillTable(
   if (requests.length) await docsBatchUpdate(token, documentId, requests);
 }
 
-function partialMarkerDeleteRequests(content: DocsStructuralElement[]) {
-  const requests: Record<string, unknown>[] = [];
-  for (const element of content) {
-    for (const run of element.paragraph?.elements || []) {
-      const text = run.textRun?.content || "";
-      if (!/{{TA|TABLE_|_LANJUTAN}}/.test(text)) continue;
-      if (
-        typeof run.startIndex !== "number" ||
-        typeof run.endIndex !== "number"
-      )
-        continue;
-      const endIndex = text.endsWith("\n") ? run.endIndex - 1 : run.endIndex;
-      if (endIndex > run.startIndex)
-        requests.push({
-          deleteContentRange: {
-            range: { startIndex: run.startIndex, endIndex },
-          },
-        });
-    }
-  }
-  return requests.sort((a, b) => {
-    const startA =
-      (a.deleteContentRange as { range?: { startIndex?: number } }).range
-        ?.startIndex || 0;
-    const startB =
-      (b.deleteContentRange as { range?: { startIndex?: number } }).range
-        ?.startIndex || 0;
-    return startB - startA;
-  });
-}
-
 async function removeMarkers(token: string, documentId: string) {
   await docsBatchUpdate(
     token,
@@ -664,11 +633,6 @@ async function removeMarkers(token: string, documentId: string) {
       },
     })),
   );
-  const doc = await getDocument(token, documentId);
-  const { content } = documentContent(doc);
-  const cleanupRequests = partialMarkerDeleteRequests(content);
-  if (cleanupRequests.length)
-    await docsBatchUpdate(token, documentId, cleanupRequests);
 }
 
 function requestSession(request: Request) {
@@ -788,6 +752,11 @@ export async function POST(request: Request) {
               log: `${config.marker} diisi (${rows.length} baris).`,
             });
           }
+          send({
+            status: "progress",
+            progress: 96,
+            log: "Menghapus marker teknis dari dokumen output.",
+          });
           await removeMarkers(token, copy.id);
           const documentUrl =
             copy.webViewLink ||
