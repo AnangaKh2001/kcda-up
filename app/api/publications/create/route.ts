@@ -6,7 +6,7 @@ import {
 } from "@/lib/auth";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 type PublicationRequest = {
   kecamatan?: string;
@@ -594,20 +594,6 @@ async function fillTable(
   rows: DynamicRow[],
 ) {
   const doc = await getDocument(token, documentId);
-  const { content } = documentContent(doc);
-  const marker = findMarker(content, config.marker);
-  const table = nextTable(content, marker.index);
-  const requests = fillRequests(table, config, rows);
-  if (requests.length) await docsBatchUpdate(token, documentId, requests);
-}
-
-async function styleTable(
-  token: string,
-  documentId: string,
-  config: TableConfig,
-  rows: DynamicRow[],
-) {
-  const doc = await getDocument(token, documentId);
   const { tabId, content } = documentContent(doc);
   const marker = findMarker(content, config.marker);
   const table = nextTable(content, marker.index);
@@ -617,7 +603,7 @@ async function styleTable(
     table.table?.tableRows?.[0]?.tableCells?.length ||
     config.columns.length;
   const orderedRows = orderedTableRows(config, rows);
-  const requests = orderedRows.map((row, offset) => ({
+  const styleRequests = orderedRows.map((row, offset) => ({
     updateTableCellStyle: {
       tableRange: {
         tableCellLocation: {
@@ -632,6 +618,7 @@ async function styleTable(
       fields: "backgroundColor",
     },
   }));
+  const requests = [...fillRequests(table, config, rows), ...styleRequests];
   if (requests.length) await docsBatchUpdate(token, documentId, requests);
 }
 
@@ -795,7 +782,6 @@ export async function POST(request: Request) {
               throw new Error(`Data untuk ${config.marker} kosong`);
             await shapeTable(token, copy.id, config, rows);
             await fillTable(token, copy.id, config, rows);
-            await styleTable(token, copy.id, config, rows);
             send({
               status: "progress",
               progress: 48 + Math.round(((index + 1) / TABLES.length) * 42),
