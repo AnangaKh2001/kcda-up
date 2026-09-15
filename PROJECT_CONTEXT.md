@@ -75,7 +75,7 @@ Route halaman utama:
 - `/data-sumber` untuk unggah, validasi, dan update database.
 - `/publikasi` untuk identitas, tim penyusun, dan pembuatan KCDA.
 
-Autentikasi menggunakan Google OAuth web-server flow. Email yang diperbolehkan dibaca dari `GOOGLE_ALLOWED_EMAILS`; token pengguna disimpan dalam cookie terenkripsi dan `HttpOnly`. Callback lokal yang didaftarkan di Google Cloud adalah `http://localhost:3000/api/auth/google/callback`.
+Autentikasi menggunakan Google OAuth web-server flow. Email yang diperbolehkan dibaca dari `GOOGLE_ALLOWED_EMAILS`; token pengguna disimpan dalam cookie terenkripsi dan `HttpOnly`. Callback OAuth dibentuk dari host request saat ini melalui header proxy Vercel, bukan dari environment variable. Daftarkan callback lokal dan production di Google Cloud OAuth Client.
 
 Pembuatan publikasi wajib dikonfirmasi dengan teks `YAKIN BUAT PUBLIKASI`. Endpoint mengirim progres NDJSON berdasarkan tahap server sebenarnya, memperbarui metadata master sheet, membaca tabel dinamis, membuat copy Docs, mengisi tabel dinamis, menghapus marker, lalu mengembalikan URL dokumen. Google Docs API tidak menyediakan operasi refresh linked table seperti tombol `Update all` di UI Docs; bagian ini tidak boleh ditandai berhasil secara otomatis sebelum mekanisme pengganti diterapkan.
 

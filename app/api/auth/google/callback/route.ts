@@ -5,6 +5,7 @@ import {
   OAUTH_STATE_COOKIE,
   SESSION_COOKIE,
 } from "@/lib/auth";
+import { googleOAuthRedirectUri } from "@/lib/google-oauth";
 
 function cookieValue(request: Request, name: string) {
   return request.headers
@@ -28,9 +29,7 @@ export async function GET(request: Request) {
       new URL("/login?error=oauth_denied", request.url),
     );
   try {
-    const redirectUri =
-      process.env.GOOGLE_OAUTH_REDIRECT_URI ||
-      new URL("/api/auth/google/callback", request.url).toString();
+    const redirectUri = googleOAuthRedirectUri(request);
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { OAUTH_STATE_COOKIE } from "@/lib/auth";
+import { googleOAuthRedirectUri } from "@/lib/google-oauth";
 
 const SCOPES = [
   "openid",
@@ -18,9 +19,7 @@ export async function GET(request: Request) {
       new URL("/login?error=oauth_config", request.url),
     );
   const state = randomBytes(32).toString("base64url");
-  const redirectUri =
-    process.env.GOOGLE_OAUTH_REDIRECT_URI ||
-    new URL("/api/auth/google/callback", request.url).toString();
+  const redirectUri = googleOAuthRedirectUri(request);
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.search = new URLSearchParams({
     client_id: clientId,
