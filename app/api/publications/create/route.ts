@@ -277,17 +277,19 @@ async function replaceFooterDistrict(
   documentId: string,
   footerDistrict: string,
 ) {
-  await docsBatchUpdate(token, documentId, [
-    {
+  await docsBatchUpdate(
+    token,
+    documentId,
+    ["{{FOOTER_KECAMATAN}}", "{{FOOTER KECAMATAN}}"].map((marker) => ({
       replaceAllText: {
         containsText: {
-          text: "{{FOOTER KECAMATAN}}",
+          text: marker,
           matchCase: true,
         },
         replaceText: footerDistrict,
       },
-    },
-  ]);
+    })),
+  );
 }
 
 async function prepareDocument(token: string, kecamatan: string, year: string) {
