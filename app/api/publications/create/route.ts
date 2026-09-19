@@ -692,7 +692,7 @@ async function fillTable(
 }
 
 async function removeMarkers(token: string, documentId: string) {
-  const markerFragments = ["{{TA"];
+  const markerFragments = ["{{TA", "{{FO"];
   await docsBatchUpdate(
     token,
     documentId,
