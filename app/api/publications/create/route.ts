@@ -277,19 +277,38 @@ async function replaceFooterDistrict(
   documentId: string,
   footerDistrict: string,
 ) {
-  await docsBatchUpdate(
-    token,
-    documentId,
-    ["{{FOOTER_KECAMATAN}}", "{{FOOTER KECAMATAN}}"].map((marker) => ({
-      replaceAllText: {
-        containsText: {
-          text: marker,
-          matchCase: true,
+  const document = await getDocument(token, documentId);
+  const { tabId, footers } = documentParts(document);
+  const markers = ["{{FOOTER_KECAMATAN}}", "{{FOOTER KECAMATAN}}"];
+  const requests: Record<string, unknown>[] = [];
+
+  for (const [footerId, footer] of Object.entries(footers)) {
+    const match = findTextRange(footer.content || [], markers);
+    if (!match) continue;
+    const segmentRange = {
+      segmentId: footerId,
+      startIndex: match.startIndex,
+      endIndex: match.endIndex,
+      ...(tabId ? { tabId } : {}),
+    };
+    requests.push(
+      { deleteContentRange: { range: segmentRange } },
+      {
+        insertText: {
+          location: {
+            segmentId: footerId,
+            index: match.startIndex,
+            ...(tabId ? { tabId } : {}),
+          },
+          text: footerDistrict,
         },
-        replaceText: footerDistrict,
       },
-    })),
-  );
+    );
+  }
+
+  if (!requests.length)
+    throw new Error("Tag {{FOOTER_KECAMATAN}} tidak ditemukan di footer");
+  await docsBatchUpdate(token, documentId, requests);
 }
 
 async function prepareDocument(token: string, kecamatan: string, year: string) {
@@ -395,21 +414,58 @@ async function getDocument(token: string, documentId: string) {
     title?: string;
     tabs?: {
       tabProperties?: { tabId?: string };
-      documentTab?: { body?: { content?: DocsStructuralElement[] } };
+      documentTab?: {
+        body?: { content?: DocsStructuralElement[] };
+        footers?: Record<string, { content?: DocsStructuralElement[] }>;
+      };
     }[];
     body?: { content?: DocsStructuralElement[] };
+    footers?: Record<string, { content?: DocsStructuralElement[] }>;
   }>(
     `https://docs.googleapis.com/v1/documents/${documentId}?includeTabsContent=true`,
     token,
   );
 }
 
-function documentContent(document: Awaited<ReturnType<typeof getDocument>>) {
+function documentParts(document: Awaited<ReturnType<typeof getDocument>>) {
   const tab = document.tabs?.[0];
   return {
     tabId: tab?.tabProperties?.tabId,
     content: tab?.documentTab?.body?.content || document.body?.content || [],
+    footers: tab?.documentTab?.footers || document.footers || {},
   };
+}
+
+function documentContent(document: Awaited<ReturnType<typeof getDocument>>) {
+  const { tabId, content } = documentParts(document);
+  return { tabId, content };
+}
+
+function findTextRange(
+  content: DocsStructuralElement[],
+  markers: string[],
+): { startIndex: number; endIndex: number } | null {
+  for (const element of content) {
+    const paragraphElements = element.paragraph?.elements || [];
+    for (const item of paragraphElements) {
+      const text = item.textRun?.content || "";
+      const marker = markers.find((candidate) => text.includes(candidate));
+      if (marker && typeof item.startIndex === "number") {
+        const offset = text.indexOf(marker);
+        return {
+          startIndex: item.startIndex + offset,
+          endIndex: item.startIndex + offset + marker.length,
+        };
+      }
+    }
+    for (const row of element.table?.tableRows || []) {
+      for (const cell of row.tableCells || []) {
+        const match = findTextRange(cell.content || [], markers);
+        if (match) return match;
+      }
+    }
+  }
+  return null;
 }
 
 function elementText(element: DocsStructuralElement): string {
@@ -692,7 +748,7 @@ async function fillTable(
 }
 
 async function removeMarkers(token: string, documentId: string) {
-  const markerFragments = ["{{TA", "{{FO"];
+  const markerFragments = ["{{TA"];
   await docsBatchUpdate(
     token,
     documentId,
