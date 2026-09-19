@@ -258,6 +258,38 @@ async function updatePublicationMetadata(
   );
 }
 
+async function readFooterDistrict(token: string) {
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+  const sheetName = "BAB 1";
+  if (!spreadsheetId) throw new Error("GOOGLE_SHEET_ID belum diatur");
+  const range = `'${sheetName.replace(/'/g, "''")}'!G3`;
+  const result = await googleJson<{ values?: unknown[][] }>(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+    token,
+  );
+  const value = String(result.values?.[0]?.[0] ?? "").trim();
+  if (!value) throw new Error(`Nilai footer pada ${sheetName}!G3 kosong`);
+  return value;
+}
+
+async function replaceFooterDistrict(
+  token: string,
+  documentId: string,
+  footerDistrict: string,
+) {
+  await docsBatchUpdate(token, documentId, [
+    {
+      replaceAllText: {
+        containsText: {
+          text: "{{FOOTER KECAMATAN}}",
+          matchCase: true,
+        },
+        replaceText: footerDistrict,
+      },
+    },
+  ]);
+}
+
 async function prepareDocument(token: string, kecamatan: string, year: string) {
   const templateId = process.env.GOOGLE_DOC_TEMPLATE_ID;
   const folderId = process.env.GOOGLE_OUTPUT_FOLDER_ID;
@@ -775,6 +807,14 @@ export async function POST(request: Request) {
               process.env.GOOGLE_USE_EXISTING_DOC === "true"
                 ? `Dokumen target siap diproses: ${copy.name}.`
                 : `Dokumen output dibuat: ${copy.name}.`,
+          });
+
+          const footerDistrict = await readFooterDistrict(token);
+          await replaceFooterDistrict(token, copy.id, footerDistrict);
+          send({
+            status: "progress",
+            progress: 50,
+            log: "Nama kecamatan pada footer diperbarui dari BAB 1!G3.",
           });
 
           for (let index = 0; index < TABLES.length; index++) {
