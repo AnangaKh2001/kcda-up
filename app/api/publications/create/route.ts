@@ -387,13 +387,10 @@ function extractRows(
     // kolom angka tidak boleh membuat baris desa kosong ikut diterbitkan.
     if (!picked[0]) continue;
     if (/^Sumber\/Source:/i.test(picked.join(" "))) break;
-    const rowLabel = normalize(sourceRow[1] || picked[0] || "");
     const type =
-      config.districtVillages && rowLabel === kecamatanKey
+      config.districtVillages && /Pemerintah Kecamatan/i.test(picked[0])
         ? "district"
-        : normalize(picked[0] || "") === kecamatanKey
-          ? "total"
-          : "data";
+        : "data";
     if (config.districtVillages)
       picked[0] = formatDistrictGovernment(
         sourceRow[1] || picked[0],
@@ -404,7 +401,15 @@ function extractRows(
       values: picked,
       backgroundColor: cellBackground(cells[config.columns[0]]),
     });
-    if (config.hasBottomTotal && type === "total") break;
+  }
+
+  if (config.hasBottomTotal) {
+    // Nama desa dapat sama persis dengan nama kecamatan. Baca seluruh blok
+    // terlebih dahulu, lalu perlakukan hanya kemunculan terakhir sebagai total.
+    const totalIndex = rows.findLastIndex(
+      (row) => normalize(row.values[0] || "") === kecamatanKey,
+    );
+    if (totalIndex >= 0) rows[totalIndex].type = "total";
   }
   return rows;
 }
