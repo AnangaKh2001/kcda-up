@@ -89,6 +89,37 @@
 .file-button:hover {
   background: #edf7fa;
 }
+.upload-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+.template-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 113px;
+  padding: 8px 10px;
+  border: 1px solid #d8e2e8;
+  border-radius: 7px;
+  color: #607087;
+  background: #f8fafb;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.template-button:hover {
+  border-color: #bcd8e2;
+  color: #137b9a;
+  background: #edf7fa;
+}
+.template-button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
 .file-button input {
   position: absolute;
   width: 1px;
@@ -235,8 +266,11 @@
   .upload-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
-  .upload-row .file-button {
+  .upload-row .upload-actions {
     grid-column: 1/3;
+  }
+  .upload-actions > * {
+    flex: 1;
   }
   .pending-source {
     align-items: flex-start;

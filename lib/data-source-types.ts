@@ -23,6 +23,7 @@ export type DatasetInfo = {
   group: "Data Kecamatan" | "Survei Hortikultura" | "EMIS";
   target: string;
   description: string;
+  templatePath: string;
 };
 
 export const DATASETS: DatasetInfo[] = [
@@ -32,6 +33,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Data Kecamatan",
     target: "DATABASE PENDUDUK WILAYAH!A1:I266",
     description: "264 baris desa dan 2 baris header",
+    templatePath: "/templates/template-jumlah-penduduk.xlsx",
   },
   {
     id: "age",
@@ -39,6 +41,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Data Kecamatan",
     target: "DATABASE PENDUDUK WILAYAH!S1:V385",
     description: "384 baris kelompok umur dan 1 header",
+    templatePath: "/templates/template-umur.xlsx",
   },
   {
     id: "distance",
@@ -46,6 +49,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Data Kecamatan",
     target: "DATABASE PENDUDUK WILAYAH!AB1:AE265",
     description: "264 baris desa dan 1 header",
+    templatePath: "/templates/template-jarak-desa.xlsx",
   },
   {
     id: "civilServants",
@@ -53,6 +57,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Data Kecamatan",
     target: "AG1:AK241 dan AM1:AP265",
     description: "Dua sheet: pendidikan dan desa",
+    templatePath: "/templates/template-jumlah-pns.xlsx",
   },
   {
     id: "rtRw",
@@ -60,6 +65,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Data Kecamatan",
     target: "DATABASE PENDUDUK WILAYAH!AR1:AU265",
     description: "264 baris desa dan 1 header",
+    templatePath: "/templates/template-jumlah-rt-rw.xlsx",
   },
   {
     id: "emisCurrent",
@@ -67,6 +73,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "EMIS",
     target: "DATABASE EMIS!A1:BC27",
     description: "24 kecamatan dan 3 baris header",
+    templatePath: "/templates/template-emis-n.xlsx",
   },
   {
     id: "emisPrevious",
@@ -74,6 +81,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "EMIS",
     target: "DATABASE EMIS N-1!A1:BC27",
     description: "24 kecamatan dan 3 baris header",
+    templatePath: "/templates/template-emis-n-1.xlsx",
   },
   {
     id: "horticulture511",
@@ -81,6 +89,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Survei Hortikultura",
     target: "DATABASE HORTI!C3:L26",
     description: "Luas panen tanaman sayuran",
+    templatePath: "/templates/template-hortikultura-5-1-1.xlsx",
   },
   {
     id: "horticulture512",
@@ -88,6 +97,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Survei Hortikultura",
     target: "DATABASE HORTI!M3:V26",
     description: "Produksi tanaman sayuran",
+    templatePath: "/templates/template-hortikultura-5-1-2.xlsx",
   },
   {
     id: "horticulture515",
@@ -95,6 +105,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Survei Hortikultura",
     target: "DATABASE HORTI!W3:AD26",
     description: "Luas panen tanaman biofarmaka",
+    templatePath: "/templates/template-hortikultura-5-1-5.xlsx",
   },
   {
     id: "horticulture516",
@@ -102,6 +113,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Survei Hortikultura",
     target: "DATABASE HORTI!AE3:AL26",
     description: "Produksi tanaman biofarmaka",
+    templatePath: "/templates/template-hortikultura-5-1-6.xlsx",
   },
   {
     id: "horticulture519",
@@ -109,6 +121,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Survei Hortikultura",
     target: "DATABASE HORTI!AM3:AT26",
     description: "Luas panen tanaman hias",
+    templatePath: "/templates/template-hortikultura-5-1-9.xlsx",
   },
   {
     id: "horticulture5110",
@@ -116,6 +129,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Survei Hortikultura",
     target: "DATABASE HORTI!AU3:BB26",
     description: "Produksi tanaman hias",
+    templatePath: "/templates/template-hortikultura-5-1-10.xlsx",
   },
   {
     id: "horticulture5113",
@@ -123,6 +137,7 @@ export const DATASETS: DatasetInfo[] = [
     group: "Survei Hortikultura",
     target: "DATABASE HORTI!BC3:BL26",
     description: "Produksi buah-buahan",
+    templatePath: "/templates/template-hortikultura-5-1-13.xlsx",
   },
 ];
 

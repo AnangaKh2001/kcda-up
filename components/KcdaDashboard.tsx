@@ -263,13 +263,19 @@ export default function KcdaDashboard({
             <i>✦</i> Buat KCDA
           </button>
         </nav>
-        <div className="sidebar-help">
+        <a
+          className="sidebar-help"
+          href="/buku-panduan-kcda-up.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Buka buku panduan penggunaan KCDA Up di tab baru"
+        >
           <span>?</span>
           <div>
             <b>Butuh bantuan?</b>
             <small>Petunjuk penggunaan KCDA Up!</small>
           </div>
-        </div>
+        </a>
         <button className="logout" onClick={logout}>
           Keluar
         </button>
@@ -659,20 +665,31 @@ function DataScreen({
                       >
                         {statusLabel(upload)}
                       </span>
-                      <label className="file-button">
-                        {upload ? "Ganti" : "Pilih file"}
-                        <input
-                          type="file"
-                          accept=".xlsx"
-                          disabled={
-                            isUpdating || upload?.status === "validating"
-                          }
-                          onChange={(event) => {
-                            void selectFile(item.id, event.target.files?.[0]);
-                            event.currentTarget.value = "";
-                          }}
-                        />
-                      </label>
+                      <div className="upload-actions">
+                        <a
+                          className="template-button"
+                          href={item.templatePath}
+                          download
+                          aria-label={`Unduh template ${item.label}`}
+                        >
+                          <span aria-hidden="true">↓</span>
+                          Unduh template
+                        </a>
+                        <label className="file-button">
+                          {upload ? "Ganti" : "Pilih file"}
+                          <input
+                            type="file"
+                            accept=".xlsx"
+                            disabled={
+                              isUpdating || upload?.status === "validating"
+                            }
+                            onChange={(event) => {
+                              void selectFile(item.id, event.target.files?.[0]);
+                              event.currentTarget.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
                     </div>
                   );
                 })}
