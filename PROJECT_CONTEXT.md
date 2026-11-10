@@ -1,388 +1,195 @@
 # KCDA Up! - Project Context
 
-Dokumen ini adalah catatan konteks cepat untuk memahami proyek tanpa perlu eksplorasi ulang dari nol.
+Dokumen ini menyimpan konteks teknis terkini agar pengembangan dapat dilanjutkan tanpa mempelajari proyek dari awal. Jangan menaruh ID resource, email pengguna, token, private key, atau nilai environment produksi di file ini.
 
-## Inti Proyek
+## Tujuan Proyek
 
-KCDA Up! adalah aplikasi untuk mengotomatisasi proses pembuatan dokumen Google Docs publikasi Kecamatan Dalam Angka (KCDA).
+KCDA Up! mengotomatisasi proses penyusunan publikasi Kecamatan Dalam Angka (KCDA):
 
-Alur besar yang dituju:
+1. Pengguna masuk melalui Google OAuth.
+2. File Excel sumber divalidasi dan ditulis ke master Google Sheets.
+3. Identitas publikasi serta tim penyusun diperbarui di master sheet.
+4. Template Google Docs disalin ke folder output.
+5. Tabel dengan jumlah baris dinamis diisi melalui Google Docs API.
+6. Aplikasi menampilkan progres, log, dan URL dokumen hasil.
 
-1. Admin login ke aplikasi.
-2. Admin mengunggah file Excel sumber data dengan template yang sudah ditentukan.
-3. Data dari Excel diproses dan dimasukkan ke master data di Google Sheet.
-4. Master data menjadi sumber utama pengisian publikasi.
-5. Google Docs publikasi KCDA dibuat/diisi dari master data dengan dua mekanisme:
-   - Linked object untuk tabel/grafik/range yang cocok dibuat sebagai objek tertaut dari Google Sheet.
-   - Google service/API untuk bagian dinamis, terutama konten yang jumlah row-nya berubah-ubah.
+## Stack
 
-## Kondisi Implementasi Saat Ini
+- Next.js App Router, React, dan TypeScript.
+- ExcelJS untuk membaca serta memvalidasi workbook.
+- Google OAuth 2.0 untuk autentikasi pengguna.
+- Google Sheets API, Google Docs API, dan Google Drive API.
+- Deployment ditujukan untuk Vercel.
 
-Saat catatan ini dibuat, proyek masih berupa aplikasi Next.js tahap awal.
+## Halaman dan Route
 
-Yang sudah ada:
+- `/login`: login Google OAuth.
+- `/dashboard`: ringkasan aplikasi.
+- `/data-sumber`: unduh template, unggah file, validasi, dan update database.
+- `/publikasi`: identitas publikasi, tim penyusun, serta pembuatan KCDA.
 
-- Login sederhana berbasis cookie session.
-- Dashboard dengan tiga area:
-  - Ringkasan.
-  - Data sumber.
-  - Buat KCDA.
-- UI upload data sumber masih mock/local state, belum benar-benar menerima dan memproses file Excel.
-- Endpoint `POST /api/publications/create` sudah menulis identitas publikasi ke Google Sheet.
-- Penulisan Google Sheet mengisi identitas pada `HALAMAN DEPAN!B1:B5` dan tim penyusun pada sel-sel `HALAMAN INFO` yang dipetakan di bawah.
-- Form pembuatan publikasi membaca nilai awal dari master Sheet melalui `GET /api/publications/create`.
-- Mapping metadata aktif:
-  - `HALAMAN DEPAN!B1:B5`: kecamatan, tahun, katalog, ISSN, nomor publikasi.
-  - `HALAMAN INFO!A63`: pengarah.
-  - `HALAMAN INFO!A66`: penanggung jawab.
-  - `HALAMAN INFO!A69`: penyunting.
-  - `HALAMAN INFO!A72`: pengolah data dan penulis naskah.
-  - `HALAMAN INFO!A75`: penata letak.
-  - `HALAMAN INFO!A78`: penerjemah.
-- Saat publikasi dibuat, seluruh metadata tersebut ditulis kembali ke master Sheet. Beberapa nama pada `A72` dimasukkan satu per baris di form dan disimpan dengan pemisah `•`.
+Route API:
 
-## Update Data Sumber
+- `/api/auth/google`: memulai OAuth web-server flow.
+- `/api/auth/google/callback`: pertukaran authorization code dan verifikasi email.
+- `/api/auth/logout`: menghapus session.
+- `/api/data-sources/validate`: memvalidasi satu workbook.
+- `/api/data-sources/update`: validasi ulang, backup, update, verifikasi, dan rollback.
+- `/api/publications/create`: membaca metadata atau membuat publikasi dengan stream progres NDJSON.
 
-- Update database mendukung unggahan sebagian; tidak semua file harus tersedia.
-- File divalidasi ketika dipilih dan divalidasi ulang di server sebelum penulisan.
-- Konfirmasi update wajib mengetik `YAKIN UPDATE`.
-- Mapping aktif:
-  - Jumlah Penduduk -> `DATABASE PENDUDUK WILAYAH!A1:I266`.
-  - Umur -> `DATABASE PENDUDUK WILAYAH!S1:V385`.
-  - Jarak Desa -> `DATABASE PENDUDUK WILAYAH!AB1:AE265`.
-  - PNS pendidikan -> `DATABASE PENDUDUK WILAYAH!AG1:AK241`.
-  - PNS desa -> `DATABASE PENDUDUK WILAYAH!AM1:AP265`; pembersihan sampai baris 267 untuk menghapus sisa rumus lama.
-  - Jumlah RT/RW -> `DATABASE PENDUDUK WILAYAH!AR1:AU265`.
-  - EMIS N -> `DATABASE EMIS!A1:BC27`.
-  - EMIS N-1 -> `DATABASE EMIS N-1!A1:BC27`.
-- Endpoint:
-  - `POST /api/data-sources/validate` untuk validasi langsung satu file.
-  - `POST /api/data-sources/update` untuk validasi ulang, pencadangan, update, verifikasi, dan rollback bila gagal.
-- Survei Hortikultura sudah aktif untuk tujuh tabel. PODES masih tampil sebagai slot unggahan nonaktif sampai mapping tersedia.
+## Autentikasi
 
-Yang belum ada:
+- Login utama menggunakan Google OAuth.
+- Scope pengguna mencakup OpenID/email/profile, Sheets, Docs, dan Drive.
+- Hanya email dalam `GOOGLE_ALLOWED_EMAILS` yang diterima.
+- Session disimpan dalam cookie `kcda_up_session` yang terenkripsi AES-256-GCM, `HttpOnly`, dan berlaku 8 jam.
+- OAuth state disimpan sementara untuk mencegah request callback yang tidak sah.
+- Callback URI dihitung dari host request dan header proxy, sehingga bekerja pada localhost dan Vercel.
+- `APP_USERNAME`, `APP_PASSWORD`, dan `GOOGLE_OAUTH_REDIRECT_URI` masih ada di environment lokal untuk kompatibilitas, tetapi tidak digunakan oleh alur login utama.
 
-- Penyimpanan file upload atau riwayat upload.
-- Pengisian Google Docs via linked object.
-- Status/progress job yang persisten.
-- Database aplikasi sendiri.
+## Data Sumber
 
-## Struktur File Penting
+Update dapat dilakukan sebagian; pengguna tidak harus mengunggah semua file sekaligus. File diperiksa ketika dipilih dan divalidasi ulang di server sebelum ditulis.
 
-Route halaman utama:
+Dataset aktif:
 
-- `/dashboard` untuk Ringkasan.
-- `/data-sumber` untuk unggah, validasi, dan update database.
-- `/publikasi` untuk identitas, tim penyusun, dan pembuatan KCDA.
+- Data Kecamatan:
+  - Jumlah Penduduk -> `DATABASE PENDUDUK WILAYAH!A1:I266`
+  - Penduduk Menurut Umur -> `DATABASE PENDUDUK WILAYAH!S1:V385`
+  - Jarak Desa -> `DATABASE PENDUDUK WILAYAH!AB1:AE265`
+  - PNS pendidikan -> `DATABASE PENDUDUK WILAYAH!AG1:AK241`
+  - PNS desa -> `DATABASE PENDUDUK WILAYAH!AM1:AP265`
+  - Jumlah RT/RW -> `DATABASE PENDUDUK WILAYAH!AR1:AU265`
+- EMIS:
+  - EMIS N -> `DATABASE EMIS!A1:BC27`
+  - EMIS N-1 -> `DATABASE EMIS N-1!A1:BC27`
+- Survei Hortikultura:
+  - Tabel 5.1.1 -> `DATABASE HORTI!C3:L26`
+  - Tabel 5.1.2 -> `DATABASE HORTI!M3:V26`
+  - Tabel 5.1.5 -> `DATABASE HORTI!W3:AD26`
+  - Tabel 5.1.6 -> `DATABASE HORTI!AE3:AL26`
+  - Tabel 5.1.9 -> `DATABASE HORTI!AM3:AT26`
+  - Tabel 5.1.10 -> `DATABASE HORTI!AU3:BB26`
+  - Tabel 5.1.13 -> `DATABASE HORTI!BC3:BL26`
 
-Autentikasi menggunakan Google OAuth web-server flow. Email yang diperbolehkan dibaca dari `GOOGLE_ALLOWED_EMAILS`; token pengguna disimpan dalam cookie terenkripsi dan `HttpOnly`. Callback OAuth dibentuk dari host request saat ini melalui header proxy Vercel, bukan dari environment variable. Daftarkan callback lokal dan production di Google Cloud OAuth Client.
+PODES masih tampil sebagai input nonaktif karena mapping dan proses update belum diterapkan.
 
-Pembuatan publikasi wajib dikonfirmasi dengan teks `YAKIN BUAT PUBLIKASI`. Endpoint mengirim progres NDJSON berdasarkan tahap server sebenarnya, memperbarui metadata master sheet, membaca tabel dinamis, membuat copy Docs, mengisi tabel dinamis, menghapus marker, lalu mengembalikan URL dokumen. Google Docs API tidak menyediakan operasi refresh linked table seperti tombol `Update all` di UI Docs; bagian ini tidak boleh ditandai berhasil secara otomatis sebelum mekanisme pengganti diterapkan.
+Validator memeriksa format `.xlsx`, nama dan jumlah sheet, header, batas area, tipe data, urutan kecamatan/kelompok, serta larangan formula atau error Excel. Update database memerlukan konfirmasi `YAKIN UPDATE`, membuat backup nilai lama, menulis data baru, membaca ulang hasil, dan melakukan rollback jika proses gagal.
 
-Mode publikasi menggunakan `GOOGLE_USE_EXISTING_DOC=false`: template tidak diedit langsung. Copy bernama `KCDA [Kecamatan] [Tahun]` dibuat ke folder `GOOGLE_OUTPUT_FOLDER_ID`, URL hasil ditampilkan di bawah progres, dan browser membuka hasil tersebut pada tab baru.
+Semua template aktif disimpan di `public/templates` dan dapat diunduh dari setiap baris input.
 
-- `package.json`
-  - Next.js, React, TypeScript.
-  - Script utama: `dev`, `build`, `start`, `typecheck`.
+## Metadata Publikasi
 
-- `app/page.tsx`
-  - Redirect berdasarkan session: `/dashboard` jika login, `/login` jika belum.
+Mapping aktif:
 
-- `app/login/page.tsx`
-  - Halaman login client-side.
-  - Mengirim username/password ke `/api/auth/login`.
+- `HALAMAN DEPAN!B1:B5`: kecamatan, tahun, katalog, ISSN, nomor publikasi.
+- `HALAMAN INFO!A63`: pengarah.
+- `HALAMAN INFO!A66`: penanggung jawab.
+- `HALAMAN INFO!A69`: penyunting.
+- `HALAMAN INFO!A72`: pengolah data dan penulis naskah.
+- `HALAMAN INFO!A75`: penata letak.
+- `HALAMAN INFO!A78`: penerjemah.
+- `BAB 1!G3`: teks kecamatan untuk marker footer.
 
-- `app/dashboard/page.tsx`
-  - Server page yang mengecek session dan menampilkan `KcdaDashboard`.
+Form membaca nilai awal dari master sheet. Saat publikasi dibuat, seluruh identitas dan tim penyusun ditulis kembali. Beberapa nama pengolah data dipisahkan dengan karakter `•` di sheet dan baris baru di form.
 
-- `components/KcdaDashboard.tsx`
-  - Komponen UI utama.
-  - Menyimpan state sementara untuk upload mock, form publikasi, dan KCDA selesai.
-  - Daftar sumber data saat ini:
-    - `PODES`
-    - `Data Kecamatan`
-    - `Survei Hortikultura`
-    - `EMIS`
-  - Daftar kecamatan hard-coded untuk Lampung Timur.
-  - Form publikasi berisi:
-    - kecamatan
-    - year
-    - catalog
-    - issn
-    - publication
-    - director
-    - responsible
-    - editor
-    - dataProcessor
-    - layout
-    - translator
-  - Saat submit publikasi, hanya lima field pertama yang dikirim dan dipakai backend saat ini.
+## Pembuatan Google Docs
 
-- `app/api/auth/login/route.ts`
-  - Validasi username/password dari env.
-  - Membuat cookie session.
+Konfigurasi resource selalu melalui environment variable:
 
-- `app/api/auth/logout/route.ts`
-  - Menghapus cookie session.
+- `GOOGLE_SHEET_ID`: master spreadsheet.
+- `GOOGLE_DOC_TEMPLATE_ID`: template Google Docs.
+- `GOOGLE_OUTPUT_FOLDER_ID`: folder Drive hasil.
+- `GOOGLE_USE_EXISTING_DOC=false`: membuat salinan baru dan menjaga template tetap utuh.
 
-- `lib/auth.ts`
-  - Session cookie: `kcda_up_session`.
-  - Session berupa payload base64url + HMAC SHA-256.
-  - Masa berlaku session: 8 jam.
-  - Credential default development ada di kode, tetapi untuk deployment harus pakai env.
+Dokumen hasil diberi nama `KCDA [Kecamatan] [Tahun]`. Proses memerlukan konfirmasi `YAKIN BUAT PUBLIKASI`, mengirim log NDJSON, dan membuka URL hasil setelah sukses.
 
-- `app/api/publications/create/route.ts`
-  - Endpoint backend utama yang sudah berhubungan dengan Google Sheets.
-  - Membuat OAuth access token manual dari Google service account menggunakan JWT RS256.
-  - Scope saat ini hanya `https://www.googleapis.com/auth/spreadsheets`.
-  - Menerima request:
-    - `kecamatan`
-    - `year`
-    - `catalog`
-    - `issn`
-    - `publication`
-  - Menulis data ke Google Sheets API range `'HALAMAN DEPAN'!B1:B5` dengan `valueInputOption=USER_ENTERED`.
+Tabel dinamis:
 
-- `app/globals.css`
-  - Semua styling aplikasi.
+- `{{TABLE_1_1}}`
+- `{{TABLE_1_2}}`
+- `{{TABLE_2_1_1}}`
+- `{{TABLE_2_2_1}}`
+- `{{TABLE_3_1}}`
+- `{{TABLE_3_1_LANJUTAN}}`
+
+Backend membaca data `BAB 1`, `BAB 2`, dan `BAB 3`, menambah atau menghapus row pada tabel Docs, mengisi cell, menerapkan warna dari master sheet, memformat nama pemerintah desa/kecamatan, lalu menghapus marker teknis.
+
+Deteksi total membaca seluruh blok data dan hanya menganggap kemunculan terakhir nama kecamatan sebagai total. Hal ini menjaga desa seperti Sukadana atau Purbolinggo tetap ikut dimasukkan ketika nama desa sama dengan nama kecamatan.
+
+Footer memakai marker `{{FOOTER_KECAMATAN}}`. Marker diganti berdasarkan indeks segment footer menggunakan nilai `BAB 1!G3`, sehingga style template dipertahankan dan teks nama kecamatan tidak terpotong.
+
+## Batasan Linked Object
+
+Google Docs API tidak menyediakan aksi yang setara dengan tombol **Update all linked objects**. Linked object pada dokumen salinan masih dapat merujuk ke master sheet yang sama. Jika master berpindah ke kecamatan lain sebelum linked object dokumen sebelumnya diselesaikan, pembaruan ulang dapat mengambil data kecamatan terbaru.
+
+Urutan aman:
+
+1. Set master untuk satu kecamatan.
+2. Buat dokumen KCDA.
+3. Selesaikan pembaruan linked object dokumen tersebut.
+4. Baru pindahkan master ke kecamatan berikutnya.
+
+Jangan menjalankan batch beberapa kecamatan menggunakan satu master yang sama tanpa mekanisme pembekuan atau unlink linked object.
 
 ## Environment Variables
 
-Variabel yang digunakan saat ini:
+Key `.env.example` diselaraskan dengan `.env`:
 
 - `APP_SECRET`
-  - Secret untuk HMAC session.
-
-- `APP_USERNAME`
-  - Username admin.
-
-- `APP_PASSWORD`
-  - Password admin.
-
+- `APP_USERNAME` (legacy/tidak dipakai login utama)
+- `APP_PASSWORD` (legacy/tidak dipakai login utama)
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+- `GOOGLE_ALLOWED_EMAILS`
+- `GOOGLE_OAUTH_REDIRECT_URI` (referensi kompatibilitas; callback dihitung otomatis)
 - `GOOGLE_SHEET_ID`
-  - ID spreadsheet master data.
-
 - `GOOGLE_MASTER_SHEET_NAME`
-  - Nama sheet target identitas publikasi. Default backend: `HALAMAN DEPAN`.
-
+- `GOOGLE_DOC_TEMPLATE_ID`
+- `GOOGLE_USE_EXISTING_DOC`
+- `GOOGLE_OUTPUT_FOLDER_ID`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-  - Email service account Google.
-  - Dipakai oleh `app/api/publications/create/route.ts`, tetapi belum tercantum di `.env.example`.
-
 - `GOOGLE_PRIVATE_KEY`
-  - Private key service account.
-  - Bisa berupa teks PEM dengan `\n` escaped atau base64 dari PEM.
-  - Dipakai oleh `app/api/publications/create/route.ts`, tetapi belum tercantum di `.env.example`.
 
-Jangan menyalin nilai rahasia dari `.env` ke dokumentasi atau source. Jika perlu menambah dokumentasi env, tulis nama variabel dan formatnya saja.
+Service account digunakan oleh proses update database. Pembuatan publikasi menggunakan token OAuth pengguna agar salinan Docs dapat dibuat pada Drive pengguna.
 
-## Model Data Saat Ini
+## File Penting
 
-Belum ada model data formal. State masih di React client state dan Google Sheet langsung.
+- `components/KcdaDashboard.tsx`: UI utama dan state proses.
+- `lib/auth.ts`: session terenkripsi dan allowlist email.
+- `lib/google-oauth.ts`: pembentukan callback URI.
+- `lib/data-source-types.ts`: daftar dataset, target, dan template.
+- `lib/data-source-import.ts`: validasi serta mapping workbook.
+- `app/api/data-sources/update/route.ts`: transaksi update master data.
+- `app/api/publications/create/route.ts`: pembentukan publikasi dan tabel dinamis.
+- `public/templates`: template Excel.
+- `public/buku-panduan-kcda-up.pdf`: buku panduan pengguna.
+- `README.md`: panduan setup dan penggunaan repository.
 
-Entitas yang sudah tersirat:
+## Status dan Gap
 
-- User/admin
-  - Saat ini hanya satu credential dari env.
+Sudah tersedia:
 
-- Data source upload
-  - Jenis: PODES, Data Kecamatan, Survei Hortikultura, EMIS.
-  - Status upload saat ini hanya mock di client.
+- OAuth Google dan allowlist email.
+- Validasi serta update 14 dataset.
+- Download template per input.
+- Backup, verifikasi, rollback, progress, dan log update.
+- Form identitas serta tim penyusun.
+- Copy Docs dan enam tabel dinamis.
+- Penggantian footer dinamis.
+- Buku panduan PDF.
 
-- Publication identity
-  - Kecamatan, tahun, nomor katalog, ISSN, nomor publikasi.
-  - Sudah dapat dikirim ke master Google Sheet.
+Belum tersedia:
 
-- Publication team
-  - Pengarah, penanggung jawab, penyunting, pengolah data/penulis naskah, penata letak, penerjemah.
-  - Ada di form, tetapi belum dikirim/dipakai backend.
+- Mapping dan update PODES.
+- Riwayat upload atau database aplikasi tersendiri.
+- Job queue/status persisten di luar request aktif.
+- Otomatisasi refresh atau unlink linked object Google Docs.
+- Rekap publikasi selesai yang persisten setelah browser refresh.
 
-## Integrasi Google Yang Perlu Diperhatikan
+## Aturan Keamanan
 
-Integrasi yang sudah berjalan secara kode:
-
-- Google Sheets API via service account.
-- Manual JWT flow menggunakan `node:crypto`.
-- Range update memakai endpoint:
-  - `PUT https://sheets.googleapis.com/v4/spreadsheets/{spreadsheetId}/values/{range}?valueInputOption=USER_ENTERED`
-
-Integrasi yang kemungkinan diperlukan berikutnya:
-
-- Google Drive API
-  - Untuk copy template Google Docs dan mengatur file output.
-
-- Google Docs API
-  - Untuk replace text placeholders.
-  - Untuk insert/delete table rows pada bagian dinamis.
-  - Untuk mengisi konten yang tidak cocok sebagai linked object.
-
-- Google Sheets API tambahan
-  - Untuk clear/update banyak range.
-  - Untuk batchUpdate.
-  - Untuk membaca mapping master data.
-
-- Google Apps Script atau Apps Script API
-  - Bisa dipertimbangkan jika linked object refresh/copy behavior lebih mudah dikendalikan dari Apps Script.
-
-Jika menambahkan Google Docs/Drive, scope service account harus diperluas dan file Google Drive/Docs/Sheets harus dibagikan ke service account.
-
-## File Google Aktif
-
-- Master Sheet:
-  - ID: `1o-yODjHh4zmNshFbZ7pwjtlt_U7Zsik3sJxRh7dJpho`
-  - Judul terdeteksi: `Master KCDA 1804`
-  - Tab penting:
-    - `HALAMAN DEPAN`
-    - `HALAMAN INFO`
-    - `BAB 1`
-    - `BAB 2`
-    - `BAB 3`
-    - `BAB 4`
-    - `BAB 5`
-    - `Bab 6`
-    - `Bab 7`
-    - `HALAMAN BELAKANG`
-    - `DATABASE PENDUDUK WILAYAH`
-    - `DATABASE HORTI`
-    - `Database PODES`
-    - `Database PODES N-1`
-    - `DATABASE EMIS`
-    - `DATABASE EMIS N-1`
-    - `Master`
-
-- Template/target Google Docs:
-  - ID: `1PNMoMmTwqNBcCqImb1XkbyHAHsOktFekpFsSSmNh2MU`
-  - Judul terdeteksi: `MASTER KCDA 1804`
-  - Google Docs API dan Google Drive API sudah aktif dan bisa diakses service account.
-  - Drive capabilities terdeteksi: service account bisa edit dan copy dokumen.
-  - Dokumen memakai Google Docs tabs; konten utama berada di tab `t.0`.
-  - Jumlah tabel terdeteksi di dokumen: 129.
-
-## Tabel Dinamis Awal
-
-Fokus step pertama adalah tabel yang jumlah row-nya mengikuti jumlah desa dalam kecamatan. Untuk contoh data Way Jepara di master sheet, ada 16 desa dan 1 baris total kecamatan.
-
-Tabel dinamis yang sudah teridentifikasi di master sheet:
-
-- `BAB 1`
-  - Tabel `1.1`: mulai sekitar row 55.
-    - Header: Desa, Luas, Persentase terhadap luas kecamatan.
-    - Data desa mulai sekitar row 61.
-    - Baris total kecamatan muncul setelah blok desa.
-  - Tabel `1.2`: mulai sekitar row 87.
-    - Header: Desa, jarak ke ibu kota kecamatan, jarak ke ibu kota kabupaten/kota.
-    - Data desa mulai sekitar row 93.
-
-- `BAB 2`
-  - Tabel `2.1.1`: mulai sekitar row 57.
-    - Header: Desa, RW, RT.
-    - Data desa mulai sekitar row 63.
-  - Tabel `2.2.1`: mulai sekitar row 90.
-    - Header: Pemerintah daerah, laki-laki, perempuan, jumlah.
-    - Termasuk baris pemerintah kecamatan lalu pemerintah desa.
-
-- `BAB 3`
-  - Tabel `3.1`: mulai sekitar row 56.
-    - Bagian pertama: Desa, laki-laki, perempuan, jumlah.
-  - `Lanjutan Tabel 3.1`: mulai sekitar row 86.
-    - Bagian lanjutan: Desa, distribusi penduduk, kepadatan penduduk, rasio jenis kelamin.
-
-Strategi teknis yang disarankan untuk Google Docs:
-
-1. Tabel template di Google Docs tetap disiapkan manual dengan header dan satu baris contoh/data marker.
-2. Backend membaca data tabel dari master sheet.
-3. Backend menemukan tabel target di Google Docs memakai marker teks stabil di dekat tabel, misalnya `{{TABLE_1_1}}`, `{{TABLE_1_2}}`, `{{TABLE_2_1_1}}`, `{{TABLE_2_2_1}}`, `{{TABLE_3_1}}`, dan `{{TABLE_3_1_LANJUTAN}}`.
-4. Backend menghapus/menambah row data pada tabel target agar sesuai jumlah data desa.
-5. Backend mengisi cell tabel menggunakan Google Docs API `batchUpdate`.
-
-Marker teks lebih aman daripada mencari tabel hanya berdasarkan urutan tabel, karena struktur dokumen publikasi bisa berubah.
-
-## Arsitektur Target Yang Masuk Akal
-
-Untuk pengembangan berikutnya, arah yang paling rapi:
-
-1. Pisahkan client UI dan Google service helper.
-2. Buat modul server khusus Google auth/client, misalnya `lib/google.ts`.
-3. Buat konfigurasi mapping template Excel ke master sheet, misalnya `lib/kcda-mappings.ts`.
-4. Buat API upload per sumber data atau satu API upload dengan `dataKind`.
-5. Parse Excel di server, validasi header/template, lalu tulis ke master Google Sheet.
-6. Buat API generate publication:
-   - tulis metadata publikasi ke master sheet,
-   - copy template Google Docs,
-   - refresh/update linked objects jika mekanismenya memungkinkan,
-   - isi bagian dinamis via Docs API,
-   - kembalikan link Docs hasil.
-
-## Catatan Gap Teknis
-
-- `.env.example` belum menyebut `GOOGLE_SERVICE_ACCOUNT_EMAIL` dan `GOOGLE_PRIVATE_KEY`, padahal endpoint Google Sheet membutuhkannya.
-- Form `PublicationForm` punya field tim penyusun, tetapi backend `PublicationRequest` belum menerima field tersebut.
-- Tombol upload hanya memanggil `mockUpload`; belum ada input file.
-- Tombol update database masih disabled/placeholder.
-- `completedKcda` hanya disimpan di state browser, hilang saat refresh.
-- `YEARS` dibuat dari tahun runtime browser/server saat ini dan berisi tahun sekarang sampai 10 tahun ke depan.
-- Proyek bukan git repository pada saat catatan dibuat.
-
-## Prinsip Implementasi Lanjutan
-
-- Jangan hard-code range penting tanpa dokumentasi mapping.
-- Untuk Excel, validasi template secara eksplisit:
-  - nama sheet,
-  - header,
-  - kolom wajib,
-  - tipe data,
-  - tahun/kecamatan jika tersedia.
-- Untuk Google Sheet master, bedakan:
-  - area input metadata publikasi,
-  - area tabel statis untuk linked object,
-  - area tabel dinamis untuk Docs API.
-- Untuk Google Docs, gunakan placeholder yang stabil dan mudah dicari, misalnya `{{NAMA_KECAMATAN}}` atau marker blok seperti `{{START_TABEL_DESA}}`.
-- Linked object cocok untuk tabel/range yang bentuknya tetap atau bisa dirapikan di Google Sheet.
-- Google Docs API lebih cocok untuk daftar/tabel dengan jumlah row berubah, narasi dinamis, dan bagian yang perlu insert/delete struktur dokumen.
-- Jaga agar backend tidak mengembalikan private error yang berisi credential.
-
-## Cara Cepat Menjalankan
-
-Install dependency sudah ada di `node_modules`, tetapi cara standar:
-
-```bash
-npm install
-npm run dev
-```
-
-Cek type:
-
-```bash
-npm run typecheck
-```
-
-Build:
-
-```bash
-npm run build
-```
-
-## Ringkasan Mental Model
-
-Anggap proyek ini sebagai orkestrator publikasi KCDA:
-
-- UI Next.js adalah ruang kerja admin.
-- Excel upload adalah input mentah yang harus divalidasi.
-- Google Sheet adalah master database dan sumber linked object.
-- Google Docs template adalah bentuk publikasi akhir.
-- Linked object menangani bagian yang bisa diambil langsung dari sheet.
-- Google service/API menangani bagian yang strukturnya dinamis.
-
-Saat ini baru fondasi UI + login + satu jalur tulis metadata ke Google Sheet. Pekerjaan inti berikutnya adalah membangun pipeline Excel ke master sheet, lalu pipeline master sheet ke Google Docs.
-
-### Survei Hortikultura
-
-Tujuh file tabel divalidasi dari sheet `Tabel`, menggunakan data 24 kecamatan pada baris 8-31. Data ditulis tanpa mengganti kolom tahun dan kecamatan di `DATABASE HORTI`:
-
-- 5.1.1 -> `C3:L26`
-- 5.1.2 -> `M3:V26`
-- 5.1.5 -> `W3:AD26`
-- 5.1.6 -> `AE3:AL26`
-- 5.1.9 -> `AM3:AT26`
-- 5.1.10 -> `AU3:BB26`
-- 5.1.13 -> `BC3:BL26`
+- Jangan commit `.env`.
+- Jangan menaruh ID resource produksi atau email pengguna di `.env.example`, README, atau context.
+- Gunakan placeholder yang tidak dapat dipakai pada dokumentasi publik.
+- Batasi akses Drive/Sheets/Docs dan rotasi secret jika pernah terekspos.
